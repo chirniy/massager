@@ -14,6 +14,6 @@ func main() {
 	r := gin.Default()
 	r.POST("/register", authorization.Register)
 	r.POST("/login", authorization.Login)
-
+	r.DELETE("/login", authorization.DeleteUser)
 	r.Run(":8080")
 }

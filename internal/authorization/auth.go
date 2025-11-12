@@ -95,3 +95,29 @@ func Login(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"token": token})
 	c.JSON(http.StatusOK, gin.H{"message": "login successful"})
 }
+
+func DeleteUser(c *gin.Context) {
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing token"})
+		return
+	}
+
+	tokenStr := authHeader
+	email, err := parseToken(tokenStr)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+		return
+	}
+
+	usersMu.Lock()
+	defer usersMu.Unlock()
+
+	if _, exists := users[email]; !exists {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+
+	delete(users, email)
+	c.JSON(http.StatusOK, gin.H{"message": "user deleted"})
+}
