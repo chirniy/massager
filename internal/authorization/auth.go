@@ -4,17 +4,43 @@ import (
 	"net/http"
 	"regexp"
 	"sync"
+	"time"
 
 	"github.com/Chirniy/massager/internal/models"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 var (
 	usersMu sync.Mutex
 	users   = make(map[string]string)
+	jwtKey  = []byte("super_secret_key_123")
 )
 
-// простая проверка: почта на gmail
+func generateToken(email string) (string, error) {
+	claims := jwt.MapClaims{
+		"email": email,
+		"exp":   time.Now().Add(time.Hour * 24).Unix(), // токен живёт 24ч
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(jwtKey)
+}
+
+func parseToken(tokenStr string) (string, error) {
+	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+		return jwtKey, nil
+	})
+	if err != nil || !token.Valid {
+		return "", err
+	}
+	if claims, ok := token.Claims.(jwt.MapClaims); ok {
+		if email, ok := claims["email"].(string); ok {
+			return email, nil
+		}
+	}
+	return "", err
+}
+
 func isValidGmail(email string) bool {
 	matched, _ := regexp.MatchString(`^[a-zA-Z0-9._%+\-]+@gmail\.com$`, email)
 	return matched
@@ -60,5 +86,12 @@ func Login(c *gin.Context) {
 		return
 	}
 
+	token, err := generateToken(req.Email)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"token": token})
 	c.JSON(http.StatusOK, gin.H{"message": "login successful"})
 }
